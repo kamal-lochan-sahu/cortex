@@ -1,0 +1,14 @@
+{
+  "threshold": 0.0062486381884622345,
+  "threshold_pct": 95,
+  "window_size": 20,
+  "val_error_mean": 0.003466267989224067,
+  "val_error_std": 0.0015085940279552818,
+  "val_error_max": 0.012287512341364987,
+  "detection_rates": {
+    "spike": 1.0,
+    "drift": 1.0,
+    "freeze": 0.004
+  },
+  "architecture": "LSTM(64)->Dense(32)->Dense(16)->Dense(32)->RepeatVector(20)->LSTM(64)->TD(Dense(1))"
+}
