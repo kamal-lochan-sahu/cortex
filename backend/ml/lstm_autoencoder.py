@@ -94,115 +94,64 @@ class LSTMAutoencoder:
         logger.info("LSTM Autoencoder ready.")
 
     def predict(self, window: list[float]) -> dict:
-        """
-        Run inference on a single 20-step window.
-
-        Args:
-            window: list of 20 float values (raw sensor readings,
-                    NOT normalized — this function normalizes internally)
-
-        Returns:
-            {
-              'reconstruction_error': float,   # MSE vs reconstructed
-              'threshold':            float,   # decision boundary
-              'is_anomaly':           bool,    # error > threshold?
-              'anomaly_score':        float,   # error / threshold (>1 = anomaly)
-              'confidence':           float,   # how far above threshold (0-1 clamped)
-            }
-
-        Raises:
-            RuntimeError: if model not loaded
-            ValueError:   if window length != 20
-        """
         if not self.is_loaded:
             raise RuntimeError(
                 "LSTM AE not loaded. Call lstm_ae.load() at startup."
             )
-
         if len(window) != self.window_size:
             raise ValueError(
                 f"Window must be {self.window_size} values, got {len(window)}"
             )
 
-        # ── Step 1: Normalize ────────────────────────────────────
-        # Convert raw sensor values → [0,1] using training scaler
-        # reshape(-1,1) → scaler expects 2D input
-        arr = np.array(window, dtype=np.float32).reshape(-1, 1)
-        arr_scaled = self.scaler.transform(arr)
+        arr = np.array(window, dtype=np.float32)
 
-        # ── Step 2: Reshape for LSTM ─────────────────────────────
-        # LSTM expects: (batch_size, timesteps, features)
-        # We have 1 sample: (1, 20, 1)
-        arr_input = arr_scaled.reshape(1, self.window_size, 1)
+        # Window-level normalization — scale-independent pattern detection.
+        # One global scaler (trained on temp_01 60-70C) would map rpm_01
+        # (1500 RPM) to ~142 — completely out of distribution.
+        # Per-window min/max normalization: LSTM learns temporal patterns
+        # regardless of sensor units or absolute value ranges.
+        w_min   = arr.min()
+        w_max   = arr.max()
+        w_range = w_max - w_min
 
-        # ── Step 3: Reconstruct ──────────────────────────────────
-        # Model reconstructs the sequence
-        # verbose=0 → no console output per prediction
+        if w_range < 1e-6:
+            # Flat line = sensor freeze — flag directly as anomaly
+            return {
+                'reconstruction_error': float(self.threshold * 2),
+                'threshold':            0.008,
+                'is_anomaly':           True,
+                'anomaly_score':        2.0,
+                'confidence':           1.0,
+                'note':                 'freeze_detected',
+            }
+
+        arr_scaled = (arr - w_min) / w_range
+        arr_input  = arr_scaled.reshape(1, self.window_size, 1)
+
         reconstructed = self.model.predict(arr_input, verbose=0)
-
-        # ── Step 4: Compute MSE ──────────────────────────────────
-        # Mean Squared Error between original and reconstructed
-        # axis=(1,2) → mean over timesteps and features
         error = float(
             np.mean(np.power(arr_input - reconstructed, 2), axis=(1, 2))[0]
         )
 
-        # ── Step 5: Anomaly decision ─────────────────────────────
-        is_anomaly    = error > self.threshold
-
-        # anomaly_score: ratio of error to threshold
-        # 0.5 = half of threshold (clearly normal)
-        # 1.0 = exactly at threshold
-        # 2.0 = twice the threshold (strong anomaly)
-        anomaly_score = error / self.threshold
-
-        # confidence: how confident are we this is an anomaly?
-        # clamped to [0, 1] — meaningful only when is_anomaly=True
-        confidence = min(1.0, max(0.0, (error - self.threshold) / self.threshold))
+        effective_threshold = 0.05
+        is_anomaly    = error > effective_threshold
+        anomaly_score = error / effective_threshold
+        confidence    = min(1.0, max(0.0, (error - effective_threshold) / effective_threshold))
 
         return {
             'reconstruction_error': round(error, 8),
-            'threshold':            round(self.threshold, 8),
+            'threshold':            effective_threshold,
             'is_anomaly':           is_anomaly,
             'anomaly_score':        round(anomaly_score, 4),
             'confidence':           round(confidence, 4),
         }
 
     def predict_batch(self, windows: list[list[float]]) -> list[dict]:
-        """
-        Run inference on multiple windows at once.
-        More efficient than calling predict() in a loop —
-        single GPU/CPU call for all windows.
-
-        Args:
-            windows: list of N windows, each 20 floats
-
-        Returns:
-            list of N result dicts (same format as predict())
-        """
         if not self.is_loaded:
             raise RuntimeError("LSTM AE not loaded.")
-
-        n = len(windows)
-        arr = np.array(windows, dtype=np.float32).reshape(-1, 1)
-        arr_scaled = self.scaler.transform(arr).reshape(n, self.window_size, 1)
-
-        reconstructed = self.model.predict(arr_scaled, verbose=0)
-        errors = np.mean(np.power(arr_scaled - reconstructed, 2), axis=(1, 2))
-
         results = []
-        for error in errors:
-            error = float(error)
-            is_anomaly    = error > self.threshold
-            anomaly_score = error / self.threshold
-            confidence    = min(1.0, max(0.0, (error - self.threshold) / self.threshold))
-            results.append({
-                'reconstruction_error': round(error, 8),
-                'threshold':            round(self.threshold, 8),
-                'is_anomaly':           is_anomaly,
-                'anomaly_score':        round(anomaly_score, 4),
-                'confidence':           round(confidence, 4),
-            })
+        for window in windows:
+            results.append(self.predict(window))
         return results
 
 
