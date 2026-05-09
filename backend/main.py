@@ -31,6 +31,7 @@ from crew.cortex_crew import get_master
 from ws_broadcaster.broadcaster import manager
 from scheduler.agent_scheduler import start_scheduler, stop_scheduler
 from ml.isolation_forest import train, MODEL_PATH
+from api.routes import router as phase2_router
 
 
 # ── Lifespan (startup + shutdown) ─────────────────────────────────────────────
@@ -63,6 +64,7 @@ async def lifespan(app: FastAPI):
 # ── App ───────────────────────────────────────────────────────────────────────
 
 app = FastAPI(
+app.include_router(phase2_router)
     title="CORTEX — Autonomous Industrial Intelligence",
     version="0.1.0-phase1",
     lifespan=lifespan,
