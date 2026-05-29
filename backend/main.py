@@ -64,11 +64,11 @@ async def lifespan(app: FastAPI):
 # ── App ───────────────────────────────────────────────────────────────────────
 
 app = FastAPI(
-app.include_router(phase2_router)
     title="CORTEX — Autonomous Industrial Intelligence",
     version="0.1.0-phase1",
     lifespan=lifespan,
 )
+app.include_router(phase2_router)
 
 app.add_middleware(
     CORSMiddleware,
@@ -159,3 +159,8 @@ async def websocket_endpoint(websocket: WebSocket):
             await websocket.receive_text()
     except WebSocketDisconnect:
         manager.disconnect(websocket)
+
+
+if __name__ == "__main__":
+    import uvicorn
+    uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=False)

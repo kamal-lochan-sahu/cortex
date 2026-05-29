@@ -71,7 +71,7 @@ class CortexMaster:
         # In Phase 3: MASTER will also route to ORACLE for prediction
         if sentinel_result["status"] == "ANOMALY_DETECTED":
             self.anomaly_count += 1
-            priority = "HIGH" if sentinel_result["anomaly_score"] < -0.40 else "MEDIUM"
+            priority = "HIGH" if sentinel_result.get("combined_score", sentinel_result.get("anomaly_score", 0)) > 0.4 else "MEDIUM"
             print(f"[MASTER] ⚠ Anomaly confirmed. Priority: {priority}")
         else:
             priority = "LOW"
@@ -93,7 +93,7 @@ class CortexMaster:
             "cycle_id":         cycle_id,
             "priority":         priority,
             "sentinel_status":  sentinel_result["status"],
-            "anomaly_score":    sentinel_result["anomaly_score"],
+            "anomaly_score":    sentinel_result.get("combined_score", sentinel_result.get("anomaly_score", 0.0)),
             "detection_method": sentinel_result["detection_method"],
             "flagged_sensors":  sentinel_result["flagged_sensors"],
             "summary":          sentinel_result["summary"],

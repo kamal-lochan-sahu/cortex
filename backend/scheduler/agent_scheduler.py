@@ -14,6 +14,7 @@ import asyncio
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from crew.cortex_crew import get_master
 from ws_broadcaster.broadcaster import manager
+from api.routes import push_anomaly_result, push_sensor_reading, update_oracle_cache, update_guardian_cache
 
 scheduler = AsyncIOScheduler()
 
@@ -33,13 +34,29 @@ async def _run_pipeline_and_broadcast():
             "cycle_id":   result["cycle_id"],
             "priority":   result["priority"],
             "status":     result["sentinel_status"],
-            "score":      result["anomaly_score"],
+            "score":      result.get("combined_score", result.get("anomaly_score", 0.0)),
             "method":     result["detection_method"],
             "flagged":    result["flagged_sensors"],
             "summary":    result["summary"],
             "timestamp":  result["timestamp"],
             "master_stats": get_master().get_status(),
         }
+
+        # Feed data into Phase 2 API stores
+        push_anomaly_result(result)
+
+        # Push sensor readings if available
+        sentinel_raw = result.get("sentinel_raw", {})
+        for sensor in result.get("flagged_sensors", []):
+            sid = sensor.get("sensor_id", "")
+            if sid:
+                push_sensor_reading(
+                    sid,
+                    sensor.get("if_score", 0.0),
+                    result.get("timestamp", ""),
+                    is_anomaly=True,
+                    anomaly_score=result.get("combined_score", 0.0)
+                )
 
         await manager.broadcast(broadcast_payload)
 
