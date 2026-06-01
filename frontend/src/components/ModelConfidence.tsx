@@ -18,7 +18,7 @@ interface Props { data: Cycle[]; maxBars?: number; }
 export default function ModelConfidence({ data, maxBars = 10 }: Props) {
   const recent = data.slice(-maxBars);
   const chartData = recent.map((d, i) => ({
-    cycle:      `C\${data.length - maxBars + i + 1}`,
+    cycle: `C${data.length - maxBars + i + 1}`,
     'IF':       parseFloat(Math.abs(d.if_score).toFixed(4)),
     'LSTM':     parseFloat(Math.min(d.lstm_score, 3).toFixed(4)),
     method:     d.detection_method,

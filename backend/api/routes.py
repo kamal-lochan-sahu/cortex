@@ -103,3 +103,83 @@ async def get_system_status():
             "anomaly_records": len(anomaly_log),
         }
     }
+
+# ─────────────────────────────────────────────
+# PHASE 3 — ORACLE + OPTIMUS ENDPOINTS
+# ─────────────────────────────────────────────
+
+# In-memory caches for Phase 3
+forecast_cache:     dict = {}
+maintenance_cache:  dict = {}
+optimus_cache:      dict = {}
+
+def update_forecast_cache(result: dict):
+    global forecast_cache
+    forecast_cache = result
+
+def update_maintenance_cache(result: dict):
+    global maintenance_cache
+    maintenance_cache = result
+
+def update_optimus_cache(result: dict):
+    global optimus_cache
+    optimus_cache = result
+
+@router.get("/api/oracle/demand-forecast")
+async def get_demand_forecast():
+    """Returns 24hr Prophet demand predictions with confidence bands."""
+    if not forecast_cache:
+        from agents.oracle import get_demand_forecast as oracle_forecast
+        result = oracle_forecast()
+        update_forecast_cache(result)
+        return result
+    return forecast_cache
+
+@router.get("/api/oracle/maintenance-windows")
+async def get_maintenance_windows():
+    """Returns top 3 recommended maintenance windows."""
+    if not maintenance_cache:
+        from agents.oracle import get_maintenance_windows
+        result = get_maintenance_windows()
+        update_maintenance_cache(result)
+        return result
+    return maintenance_cache
+
+@router.get("/api/oracle/shap-explanation")
+async def get_shap_explanation(machine_id: str = "B"):
+    """Returns SHAP feature importance for failure prediction."""
+    from agents.oracle import explain_failure, _ensure_trained
+    import numpy as np
+    _ensure_trained()
+    # Use realistic high-stress stats for demonstration
+    off = {"A": 0, "B": 1, "C": 2}.get(machine_id.upper(), 1)
+    stats = {
+        "temp_mean":           65.0 + off * 4 + np.random.normal(0, 1),
+        "temp_std":            2.0  + off * 0.5,
+        "temp_max":            72.0 + off * 4,
+        "vib_mean":            0.5  + off * 0.08,
+        "vib_std":             0.05 + off * 0.02,
+        "vib_max":             0.65 + off * 0.1,
+        "anomaly_count":       off * 2,
+        "anomaly_rate":        off * 0.04,
+        "combined_score_mean": off * 0.15,
+        "combined_score_max":  off * 0.3,
+        "cycles_since_last":   max(10, 50 - off * 15),
+    }
+    return explain_failure(machine_id.upper(), stats)
+
+@router.get("/api/optimus/energy-status")
+async def get_energy_status():
+    """Returns current energy price, active action, savings this hour."""
+    if not optimus_cache:
+        from agents.optimus import run_optimus_cycle
+        result = run_optimus_cycle()
+        update_optimus_cache(result)
+    from agents.optimus import get_energy_status as optimus_status
+    return optimus_status()
+
+@router.get("/api/optimus/actions-log")
+async def get_actions_log(limit: int = 24):
+    """Returns last N OPTIMUS decisions with outcomes."""
+    from agents.optimus import get_actions_log as optimus_log
+    return optimus_log(last_n=limit)

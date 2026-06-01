@@ -6,6 +6,9 @@ import SensorChart from "@/src/components/SensorChart";
 import AnomalyTimeline from "@/src/components/AnomalyTimeline";
 import ModelConfidence from "@/src/components/ModelConfidence";
 import FailureGauge from "@/src/components/FailureGauge";
+import DemandForecast from "@/src/components/DemandForecast";
+import MaintenanceList from "@/src/components/MaintenanceList";
+import EnergyPanel from "@/src/components/EnergyPanel";
 import { Agent, SentinelLog, MasterStats } from "@/types/cortex.types";
 
 const WS_URL  = "ws://localhost:8000/ws";
@@ -19,7 +22,7 @@ export default function Home() {
   const [cycleHistory, setCycleHistory] = useState<any[]>([]);
   const [sensorData, setSensorData]   = useState<Record<string, any[]>>({});
   const [oraclePreds, setOraclePreds] = useState<Record<string, any>>({});
-  const [activeTab, setActiveTab]     = useState<"overview"|"sensors"|"oracle"|"guardian">("overview");
+  const [activeTab, setActiveTab]     = useState<"overview"|"sensors"|"oracle"|"operations"|"guardian">("overview");
 
   // ── Initial fetch ─────────────────────────────────────────────
   useEffect(() => {
@@ -93,7 +96,7 @@ export default function Home() {
       <div className="border-b border-slate-800 px-6 py-4 flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold tracking-widest text-white font-mono">CORTEX</h1>
-          <p className="text-slate-500 text-xs mt-0.5">Autonomous Multi-Agent Industrial Intelligence · Phase 2</p>
+          <p className="text-slate-500 text-xs mt-0.5">Autonomous Multi-Agent Industrial Intelligence · Phase 3</p>
         </div>
         <div className="flex items-center gap-2">
           <div className={`w-2 h-2 rounded-full ${connected ? "bg-emerald-500 animate-pulse" : "bg-red-500"}`} />
@@ -120,7 +123,7 @@ export default function Home() {
 
       {/* ── Tab Nav ── */}
       <div className="flex gap-1 px-6 pt-4">
-        {(["overview","sensors","oracle","guardian"] as const).map(tab => (
+        {(["overview","sensors","oracle","operations","guardian"] as const).map(tab => (
           <button key={tab} onClick={() => setActiveTab(tab)}
             className={`px-4 py-1.5 rounded-md text-xs font-mono uppercase tracking-wider transition-colors
               ${activeTab===tab
@@ -250,6 +253,35 @@ export default function Home() {
               ))}
             </div>
           </section>
+        </>)}
+
+
+        {/* ════════════ OPERATIONS TAB ════════════ */}
+        {activeTab === "operations" && (<>
+
+          {/* Energy Panel + Demand Forecast side by side */}
+          <section>
+            <h2 className="text-slate-500 text-xs tracking-widest font-mono mb-3">
+              OPTIMUS · ENERGY OPTIMIZATION
+            </h2>
+            <div className="grid grid-cols-3 gap-4">
+              <div className="col-span-1">
+                <EnergyPanel />
+              </div>
+              <div className="col-span-2">
+                <DemandForecast />
+              </div>
+            </div>
+          </section>
+
+          {/* Maintenance Windows */}
+          <section>
+            <h2 className="text-slate-500 text-xs tracking-widest font-mono mb-3">
+              ORACLE · MAINTENANCE WINDOWS
+            </h2>
+            <MaintenanceList />
+          </section>
+
         </>)}
 
         {/* ════════════ GUARDIAN TAB ════════════ */}
