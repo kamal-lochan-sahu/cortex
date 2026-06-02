@@ -32,6 +32,7 @@ from ws_broadcaster.broadcaster import manager
 from scheduler.agent_scheduler import start_scheduler, stop_scheduler
 from ml.isolation_forest import train, MODEL_PATH
 from api.routes import router as phase2_router
+from hermes.hermes_router import router as hermes_router
 
 
 # ── Lifespan (startup + shutdown) ─────────────────────────────────────────────
@@ -69,6 +70,7 @@ app = FastAPI(
     lifespan=lifespan,
 )
 app.include_router(phase2_router)
+app.include_router(hermes_router)
 
 app.add_middleware(
     CORSMiddleware,
