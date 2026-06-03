@@ -9,6 +9,8 @@ import FailureGauge from "@/src/components/FailureGauge";
 import DemandForecast from "@/src/components/DemandForecast";
 import MaintenanceList from "@/src/components/MaintenanceList";
 import EnergyPanel from "@/src/components/EnergyPanel";
+import InventoryGauge from "@/src/components/InventoryGauge";
+import SupplierMatrix from "@/src/components/SupplierMatrix";
 import { Agent, SentinelLog, MasterStats } from "@/types/cortex.types";
 
 const WS_URL  = "ws://localhost:8000/ws";
@@ -23,6 +25,9 @@ export default function Home() {
   const [sensorData, setSensorData]   = useState<Record<string, any[]>>({});
   const [oraclePreds, setOraclePreds] = useState<Record<string, any>>({});
   const [activeTab, setActiveTab]     = useState<"overview"|"sensors"|"oracle"|"operations"|"guardian">("overview");
+const [hermesInventory, setHermesInventory] = useState<any[]>([]);
+const [hermesInventorySummary, setHermesInventorySummary] = useState<any>({total:0,critical:0,high:0,medium:0,low:0});
+const [hermesSuppliers, setHermesSuppliers]   = useState<any[]>([]);
 
   // ── Initial fetch ─────────────────────────────────────────────
   useEffect(() => {
@@ -41,6 +46,15 @@ export default function Home() {
     fetch(`${API_URL}/api/oracle/predictions`)
       .then(r => r.json())
       .then(d => setOraclePreds(d.predictions ?? {}));
+    fetch(`${API_URL}/api/hermes/inventory`)
+      .then(r => r.json())
+      .then(d => {
+        setHermesInventory(d.components ?? []);
+        setHermesInventorySummary(d.summary ?? {});
+      });
+    fetch(`${API_URL}/api/hermes/suppliers`)
+      .then(r => r.json())
+      .then(d => setHermesSuppliers(d.suppliers ?? []));
   }, []);
 
   // ── WebSocket updates ─────────────────────────────────────────
@@ -80,6 +94,15 @@ export default function Home() {
       fetch(`${API_URL}/api/oracle/predictions`)
         .then(r => r.json())
         .then(d => setOraclePreds(d.predictions ?? {}));
+      fetch(`${API_URL}/api/hermes/inventory`)
+        .then(r => r.json())
+        .then(d => {
+          setHermesInventory(d.components ?? []);
+          setHermesInventorySummary(d.summary ?? {});
+        });
+      fetch(`${API_URL}/api/hermes/suppliers`)
+        .then(r => r.json())
+        .then(d => setHermesSuppliers(d.suppliers ?? []));
     }, 10000);
     return () => clearInterval(interval);
   }, []);
@@ -96,7 +119,7 @@ export default function Home() {
       <div className="border-b border-slate-800 px-6 py-4 flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold tracking-widest text-white font-mono">CORTEX</h1>
-          <p className="text-slate-500 text-xs mt-0.5">Autonomous Multi-Agent Industrial Intelligence · Phase 3</p>
+          <p className="text-slate-500 text-xs mt-0.5">Autonomous Multi-Agent Industrial Intelligence · Phase 4</p>
         </div>
         <div className="flex items-center gap-2">
           <div className={`w-2 h-2 rounded-full ${connected ? "bg-emerald-500 animate-pulse" : "bg-red-500"}`} />
@@ -280,6 +303,24 @@ export default function Home() {
               ORACLE · MAINTENANCE WINDOWS
             </h2>
             <MaintenanceList />
+          </section>
+
+          {/* HERMES Supply Chain */}
+          <section>
+            <h2 className="text-slate-500 text-xs tracking-widest font-mono mb-3">
+              HERMES · SUPPLY CHAIN INTELLIGENCE
+            </h2>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="bg-slate-900 border border-slate-800 rounded-xl p-4">
+                <InventoryGauge
+                  components={hermesInventory}
+                  summary={hermesInventorySummary}
+                />
+              </div>
+              <div className="bg-slate-900 border border-slate-800 rounded-xl p-4">
+                <SupplierMatrix suppliers={hermesSuppliers} />
+              </div>
+            </div>
           </section>
 
         </>)}
