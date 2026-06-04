@@ -26,6 +26,7 @@ from agents.oracle import run_oracle_cycle, get_demand_forecast
 from agents.optimus import run_optimus_cycle, get_energy_status
 from database.crud import save_sentinel_log, save_scribe_report
 from data.sensor_generator import generate_snapshot
+from hermes.hermes import run_hermes_cycle as _run_hermes
 from api.routes import (
     push_sensor_reading, push_anomaly_result,
     update_oracle_cache, update_guardian_cache,
@@ -154,6 +155,30 @@ class CortexMaster:
                     optimus_result["auto_applied"] = False
                     optimus_result["conflict_override"] = True
 
+        # ── P3.5: HERMES — every 3 cycles (~30s) ─────────────────────
+        # HERMES runs between OPTIMUS and SCRIBE
+        # CRITICAL stockout → immediate escalation
+        hermes_result = None
+        if cycle_id % 3 == 0:
+            print(f"[MASTER] → P3.5: HERMES")
+            try:
+                hermes_result = _run_hermes(cycle_number=cycle_id)
+                critical = hermes_result.get("critical_count", 0)
+                orders   = hermes_result.get("orders_count", 0)
+                print(f"[MASTER] ← HERMES: critical={critical} orders={orders}")
+
+                # ORACLE → HERMES coupling check
+                # Agar ORACLE ne failure signal diya aur HERMES ne orders place kiye
+                if oracle_result and critical > 0:
+                    _log_conflict(
+                        reason=f"ORACLE failure signal triggered HERMES pre-positioning",
+                        winner="HERMES",
+                        loser="NONE",
+                        detail=f"CRITICAL components={critical}, orders={orders}"
+                    )
+            except Exception as e:
+                print(f"[MASTER] ← HERMES ERROR: {e}")
+
         # ── P4: SCRIBE — always ───────────────────────────────────────
         print(f"[MASTER] → P4: SCRIBE")
         log       = save_sentinel_log(sentinel_result, snapshot)
@@ -181,6 +206,8 @@ class CortexMaster:
             "oracle_ran":       oracle_result is not None,
             "optimus_ran":      optimus_result is not None,
             "conflict":         conflict,
+            "hermes_ran":       hermes_result is not None,
+            "hermes_critical":  hermes_result.get("critical_count", 0) if hermes_result else 0,
         }
 
         self.last_result = pipeline_result

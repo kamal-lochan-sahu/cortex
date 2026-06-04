@@ -28,6 +28,7 @@ export default function Home() {
 const [hermesInventory, setHermesInventory] = useState<any[]>([]);
 const [hermesInventorySummary, setHermesInventorySummary] = useState<any>({total:0,critical:0,high:0,medium:0,low:0});
 const [hermesSuppliers, setHermesSuppliers]   = useState<any[]>([]);
+const [healthScore, setHealthScore] = useState<any>(null);
 
   // ── Initial fetch ─────────────────────────────────────────────
   useEffect(() => {
@@ -55,6 +56,9 @@ const [hermesSuppliers, setHermesSuppliers]   = useState<any[]>([]);
     fetch(`${API_URL}/api/hermes/suppliers`)
       .then(r => r.json())
       .then(d => setHermesSuppliers(d.suppliers ?? []));
+    fetch(`${API_URL}/api/system/health-score`)
+      .then(r => r.json())
+      .then(d => setHealthScore(d));
   }, []);
 
   // ── WebSocket updates ─────────────────────────────────────────
@@ -103,6 +107,9 @@ const [hermesSuppliers, setHermesSuppliers]   = useState<any[]>([]);
       fetch(`${API_URL}/api/hermes/suppliers`)
         .then(r => r.json())
         .then(d => setHermesSuppliers(d.suppliers ?? []));
+      fetch(`${API_URL}/api/system/health-score`)
+        .then(r => r.json())
+        .then(d => setHealthScore(d));
     }, 10000);
     return () => clearInterval(interval);
   }, []);
@@ -121,9 +128,33 @@ const [hermesSuppliers, setHermesSuppliers]   = useState<any[]>([]);
           <h1 className="text-2xl font-bold tracking-widest text-white font-mono">CORTEX</h1>
           <p className="text-slate-500 text-xs mt-0.5">Autonomous Multi-Agent Industrial Intelligence · Phase 4</p>
         </div>
-        <div className="flex items-center gap-2">
-          <div className={`w-2 h-2 rounded-full ${connected ? "bg-emerald-500 animate-pulse" : "bg-red-500"}`} />
-          <span className="text-xs text-slate-400 font-mono">{connected ? "LIVE" : "RECONNECTING"}</span>
+        <div className="flex items-center gap-4">
+          {healthScore && (
+            <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg border border-slate-700 bg-slate-900">
+              <span className="text-xs text-slate-500 font-mono">FACTORY HEALTH</span>
+              <span className="text-sm font-bold font-mono" style={{
+                color: healthScore.score >= 85 ? '#10b981' :
+                       healthScore.score >= 70 ? '#f59e0b' :
+                       healthScore.score >= 55 ? '#f97316' : '#ef4444'
+              }}>
+                {healthScore.score}/100
+              </span>
+              <span className="text-xs font-mono px-1.5 py-0.5 rounded" style={{
+                backgroundColor: healthScore.score >= 85 ? '#10b98120' :
+                                 healthScore.score >= 70 ? '#f59e0b20' :
+                                 healthScore.score >= 55 ? '#f9731620' : '#ef444420',
+                color: healthScore.score >= 85 ? '#10b981' :
+                       healthScore.score >= 70 ? '#f59e0b' :
+                       healthScore.score >= 55 ? '#f97316' : '#ef4444',
+              }}>
+                {healthScore.label}
+              </span>
+            </div>
+          )}
+          <div className="flex items-center gap-2">
+            <div className={`w-2 h-2 rounded-full ${connected ? "bg-emerald-500 animate-pulse" : "bg-red-500"}`} />
+            <span className="text-xs text-slate-400 font-mono">{connected ? "LIVE" : "RECONNECTING"}</span>
+          </div>
         </div>
       </div>
 

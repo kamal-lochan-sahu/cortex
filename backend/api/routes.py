@@ -183,3 +183,8 @@ async def get_actions_log(limit: int = 24):
     """Returns last N OPTIMUS decisions with outcomes."""
     from agents.optimus import get_actions_log as optimus_log
     return optimus_log(last_n=limit)
+@router.get("/api/system/health-score")
+async def get_factory_health_score():
+    """Factory Health Score — all 5 agents ka combined score."""
+    from reports.health_scorer import calculate_factory_health
+    return calculate_factory_health()
